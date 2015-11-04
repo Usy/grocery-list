@@ -359,6 +359,7 @@ public class MainActivity extends AppCompatActivity implements
     // [END on_sign_out_clicked]
 
     private void onManageClicked() {
-
+        Intent intent = new Intent(this, ListActivity.class);
+        startActivity(intent);
     }
 }
