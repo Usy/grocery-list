@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_inc" android:icon="@mipmap/ic_plus"
+        android:title="Increase" />
+    <item android:id="@+id/menu_dec" android:icon="@mipmap/ic_minus"
+        android:title="Decrease" />
+    <item android:id="@+id/menu_remove" android:icon="@android:drawable/ic_menu_delete"
+        android:title="Remove" />
+
+</menu>
