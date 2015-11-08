@@ -84,7 +84,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/manage"
                 android:textColor="@android:color/white"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="5dp"
                 android:theme="@style/ThemeOverlay.MyDarkButton" />
 
             <Button
@@ -93,7 +93,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/server_ip"
                 android:textColor="@android:color/white"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="5dp"
                 android:theme="@style/ThemeOverlay.MyDarkButton" />
 
             <Button
