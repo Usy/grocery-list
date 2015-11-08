@@ -1,8 +1,10 @@
 package pl.kask.grocerylistclient;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -189,8 +191,12 @@ public class ListActivity extends AppCompatActivity {
         });
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        String ip = settings.getString("ip", "192.168.1.101:8080");
+        String endpoint = "http://" + ip + "/GroceryList/rest/grocery";
+        Log.d(TAG, endpoint);
         RestAdapter restAdapter = new RestAdapter.Builder()
-                .setEndpoint("http://192.168.1.101:8080/GroceryList/rest/grocery")
+                .setEndpoint(endpoint)
                 .build();
 
         groceryApi = restAdapter.create(GroceryApi.class);

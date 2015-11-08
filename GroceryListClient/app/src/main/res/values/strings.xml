@@ -9,5 +9,6 @@
     <string name="sign_out">Sign out</string>
     <string name="contacts_permission_rationale">Contacts access is needed in order to retrieve your email address.</string>
     <string name="manage">Manage grocery list</string>
+    <string name="server_ip">Set server IP</string>
     <string name="title_activity_list">My Grocery List</string>
 </resources>

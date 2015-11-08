@@ -1,9 +1,12 @@
 package pl.kask.grocerylistclient;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -13,10 +16,12 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.InputType;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -80,6 +85,7 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.sign_in_button).setOnClickListener(this);
         findViewById(R.id.sign_out_button).setOnClickListener(this);
         findViewById(R.id.manage_button).setOnClickListener(this);
+        findViewById(R.id.server_ip_button).setOnClickListener(this);
 
         // Large sign-in
         ((SignInButton) findViewById(R.id.sign_in_button)).setSize(SignInButton.SIZE_WIDE);
@@ -329,6 +335,9 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.manage_button:
                 onManageClicked();
                 break;
+            case R.id.server_ip_button:
+                onServerIpClicked();
+                break;
         }
     }
     // [END on_click]
@@ -363,5 +372,29 @@ public class MainActivity extends AppCompatActivity implements
         Intent intent = new Intent(this, ListActivity.class);
         intent.putExtra(LOGGED_USER_MAIL_TAG, currentAccount);
         startActivity(intent);
+    }
+
+    private void onServerIpClicked() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        builder.setTitle("Set server IP");
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putString("ip", input.getText().toString());
+                editor.commit();
+            }
+        });
+        builder.show();
     }
 }
