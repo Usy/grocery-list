@@ -3,10 +3,7 @@ package pl.kask;
 import pl.kask.dto.GroceryItemDto;
 import pl.kask.model.GroceryItem;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,5 +31,48 @@ public class GroceryRestService {
             result.add(new GroceryItemDto(item));
         }
         return result;
+    }
+
+    @POST
+    @Path("/items")
+    @Consumes("application/json")
+    public void addItem(GroceryItemDto groceryItemDto) {
+        GroceryItem newItem = new GroceryItem(
+                groceryItemDto.getOwner(),
+                groceryItemDto.getItemName(),
+                groceryItemDto.getAmount()
+        );
+        groceryService.persist(newItem);
+    }
+
+    @DELETE
+    @Path("/items/{name}/{item}")
+    public void deleteItem(@PathParam("name") String name, @PathParam("item") String itemName) {
+        List<GroceryItem> items = groceryService.findByOwner(name);
+        for (GroceryItem item : items) {
+            if (item.getItemName().equals(itemName)) {
+                groceryService.delete(item);
+                break;
+            }
+        }
+    }
+
+    @PUT
+    @Path("/items")
+    @Consumes("application/json")
+    public void updateItem(GroceryItemDto groceryItemDto) {
+        List<GroceryItem> items = groceryService.findByOwner(groceryItemDto.getOwner());
+        GroceryItem oldItem = null;
+        for (GroceryItem item : items) {
+            if (item.getItemName().equals(groceryItemDto.getItemName())) {
+                oldItem = item;
+                break;
+            }
+        }
+        if (oldItem == null) {
+            return;
+        }
+        oldItem.setAmount(groceryItemDto.getAmount());
+        groceryService.update(oldItem);
     }
 }

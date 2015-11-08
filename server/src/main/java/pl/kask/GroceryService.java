@@ -29,6 +29,12 @@ public class GroceryService {
         groceryDao.closeCurrentSessionWithTransaction();
     }
 
+    public void delete(GroceryItem groceryItem) {
+        groceryDao.openCurrentSessionWithTransaction();
+        groceryDao.delete(groceryItem);
+        groceryDao.closeCurrentSessionWithTransaction();
+    }
+
     public GroceryItem findById(long id) {
         groceryDao.openCurrentSession();
         GroceryItem groceryItem = groceryDao.findById(id);
