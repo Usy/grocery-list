@@ -359,7 +359,9 @@ public class MainActivity extends AppCompatActivity implements
     // [END on_sign_out_clicked]
 
     private void onManageClicked() {
+        String currentAccount = Plus.AccountApi.getAccountName(mGoogleApiClient);
         Intent intent = new Intent(this, ListActivity.class);
+        intent.putExtra(LOGGED_USER_MAIL_TAG, currentAccount);
         startActivity(intent);
     }
 }

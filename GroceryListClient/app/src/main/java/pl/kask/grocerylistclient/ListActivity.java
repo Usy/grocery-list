@@ -2,12 +2,14 @@ package pl.kask.grocerylistclient;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.InputType;
+import android.util.Log;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -16,41 +18,45 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
-import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
+import retrofit.Callback;
+import retrofit.RestAdapter;
+import retrofit.RetrofitError;
+import retrofit.client.Response;
 
 public class ListActivity extends AppCompatActivity {
 
-    List<GroceryItemDto> groceryList;
+    private static final String TAG = ListActivity.class.getName();
 
-    private ActionMode mActionMode;
+    private List<GroceryItemDto> groceryList;
+    private GroceryApi groceryApi;
+    private ActionMode actionMode;
+    private String userMail;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Intent intent = getIntent();
+        userMail = intent.getStringExtra(MainActivity.LOGGED_USER_MAIL_TAG);
+
         setContentView(R.layout.activity_list);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         final ListView groceryItemsListView = (ListView) findViewById(R.id.groceryItemsListView);
-        groceryList = new ArrayList<>(Arrays.asList(
-                new GroceryItemDto("k.lyskawinski@gmail.com", "Apples", 2),
-                new GroceryItemDto("k.lyskawinski@gmail.com", "Milk", 1),
-                new GroceryItemDto("k.lyskawinski@gmail.com", "Bread", 1)
-        ));
+        groceryList = new ArrayList<>();
         final ArrayAdapter<GroceryItemDto> groceryListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, groceryList);
-        groceryList.add(new GroceryItemDto("k.lyskawinski@gmail.com", "Oranges", 3));
         groceryItemsListView.setAdapter(groceryListAdapter);
         groceryItemsListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
 
-        final ActionMode.Callback mActionModeCallback = new ActionMode.Callback() {
+        final ActionMode.Callback actionModeCallback = new ActionMode.Callback() {
 
             // Called when the action mode is created; startActionMode() was called
             @Override
@@ -96,7 +102,7 @@ public class ListActivity extends AppCompatActivity {
                                 amount += difference;
                                 groceryItemDto.setAmount(amount);
                                 groceryListAdapter.notifyDataSetChanged();
-                                // TODO post update
+                                updateItem(groceryItemDto);
                             }
                         });
                         builder.show();
@@ -117,15 +123,17 @@ public class ListActivity extends AppCompatActivity {
                                 }
                                 groceryItemDto.setAmount(amount);
                                 groceryListAdapter.notifyDataSetChanged();
-                                // TODO post update
+                                updateItem(groceryItemDto);
                             }
                         });
                         builder.show();
                         mode.finish(); // Action picked, so close the CAB
                         return true;
                     case R.id.menu_remove:
+                        final GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
                         groceryList.remove(checkedItemPosition);
                         groceryListAdapter.notifyDataSetChanged();
+                        removeItem(groceryItemDto.getItemName());
                         mode.finish();
                         return true;
                     default:
@@ -136,31 +144,19 @@ public class ListActivity extends AppCompatActivity {
             // Called when the user exits the action mode
             @Override
             public void onDestroyActionMode(ActionMode mode) {
-                mActionMode = null;
+                actionMode = null;
             }
         };
 
         groceryItemsListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (mActionMode == null) {
-                    mActionMode = ListActivity.this.startActionMode(mActionModeCallback);
+                if (actionMode == null) {
+                    actionMode = ListActivity.this.startActionMode(actionModeCallback);
                     groceryItemsListView.setItemChecked(position, true);
                 }
             }
         });
-
-//        groceryItemsListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-//            @Override
-//            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-//                String name;
-//                GroceryItemDto groceryItem = (GroceryItemDto) groceryItemsListView.getItemAtPosition(position);
-//                name = groceryItem.getItemName();
-//                Toast.makeText(ListActivity.this, name, Toast.LENGTH_SHORT).show();
-//            }
-//        });
-
-
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -176,9 +172,10 @@ public class ListActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String name = input.getText().toString();
-                        groceryList.add(new GroceryItemDto("k.lyskawinski@gmail.com", name, 0));
+                        final GroceryItemDto groceryItemDto = new GroceryItemDto(userMail, name, 0);
+                        groceryList.add(groceryItemDto);
                         groceryListAdapter.notifyDataSetChanged();
-                        // TODO post update
+                        createItem(groceryItemDto);
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -191,6 +188,88 @@ public class ListActivity extends AppCompatActivity {
             }
         });
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        RestAdapter restAdapter = new RestAdapter.Builder()
+                .setEndpoint("http://192.168.1.101:8080/GroceryList/rest/grocery")
+                .build();
+
+        groceryApi = restAdapter.create(GroceryApi.class);
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                List<GroceryItemDto> result = groceryApi.fetchItems(userMail);
+                groceryList.clear();
+                groceryList.addAll(result);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        groceryListAdapter.notifyDataSetChanged();
+                    }
+                });
+
+                return null;
+            }
+        }.execute();
     }
 
+    private void updateItem(final GroceryItemDto groceryItemDto) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                groceryApi.updateItem(groceryItemDto, new Callback<Response>() {
+                    @Override
+                    public void success(Response r, Response response) {
+                        Log.i(TAG, "Updating element finished successfully " + response);
+                    }
+
+                    @Override
+                    public void failure(RetrofitError error) {
+                        Log.e(TAG, "There was a problem during update: " + error);
+                    }
+                });
+                return null;
+            }
+        }.execute();
+    }
+
+    private void createItem(final GroceryItemDto groceryItemDto) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                groceryApi.addItem(groceryItemDto, new Callback<Response>() {
+                    @Override
+                    public void success(Response r, Response response) {
+                        Log.i(TAG, "Adding element finished successfully " + response);
+                    }
+
+                    @Override
+                    public void failure(RetrofitError error) {
+                        Log.e(TAG, "There was a problem during creation: " + error);
+                    }
+                });
+                return null;
+            }
+        }.execute();
+    }
+
+    private void removeItem(final String itemName) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                groceryApi.deleteItem(userMail, itemName, new Callback<Response>() {
+                    @Override
+                    public void success(Response r, Response response) {
+                        Log.i(TAG, "Item deleted successfully");
+                    }
+
+                    @Override
+                    public void failure(RetrofitError error) {
+                        Log.e(TAG, "There was a problem during deletion " + error);
+                    }
+                });
+                return null;
+            }
+        }.execute();
+    }
 }
