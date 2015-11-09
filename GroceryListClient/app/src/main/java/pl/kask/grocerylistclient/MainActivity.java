@@ -30,13 +30,16 @@ public class MainActivity extends AppCompatActivity implements
 
     private static final String TAG = "MainActivity";
 
-    public static final String LOGGED_USER_MAIL_TAG = "LOGGED_USER_MAIL_TAG";
+    public static final String LOGGED_USER_ACC_ID_TAG = "LOGGED_USER_ACC_ID_TAG";
+    public static final String LOGGED_USER_ID_TOKEN_TAG = "LOGGED_USER_ID_TOKEN_TAG";
 
     private static final int RC_SIGN_IN = 9002;
     private GoogleApiClient mGoogleApiClient;
 
     /* View to display current status (signed-in, signed-out, disconnected, etc) */
     private TextView mStatus;
+    private String accountId;
+    private String idToken;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,9 +87,11 @@ public class MainActivity extends AppCompatActivity implements
         if (result.isSuccess()) {
             // Signed in successfully, show authenticated UI.
             GoogleSignInAccount acct = result.getSignInAccount();
-            mStatus.setText(getString(R.string.signed_in_fmt, acct.getDisplayName()));
-            Log.d(TAG, "acc id: " + acct.getId());
-            Log.d(TAG, "id token: " + acct.getIdToken());
+            mStatus.setText(getString(R.string.signed_in_fmt, acct.getEmail()));
+            accountId = acct.getId();
+            idToken = acct.getIdToken();
+            Log.d(TAG, "acc id: " + accountId);
+            Log.d(TAG, "id token: " + idToken);
             updateUI(true);
         } else {
             // Signed out, show unauthenticated UI.
@@ -157,10 +162,9 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void onManageClicked() {
-        String currentAccount = "";
-
         Intent intent = new Intent(this, ListActivity.class);
-        intent.putExtra(LOGGED_USER_MAIL_TAG, currentAccount);
+        intent.putExtra(LOGGED_USER_ACC_ID_TAG, accountId);
+        intent.putExtra(LOGGED_USER_ID_TOKEN_TAG, idToken);
         startActivity(intent);
     }
 

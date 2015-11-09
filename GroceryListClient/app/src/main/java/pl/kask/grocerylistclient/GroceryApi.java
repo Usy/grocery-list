@@ -8,6 +8,7 @@ import retrofit.client.Response;
 import retrofit.http.Body;
 import retrofit.http.DELETE;
 import retrofit.http.GET;
+import retrofit.http.Header;
 import retrofit.http.POST;
 import retrofit.http.PUT;
 import retrofit.http.Path;
@@ -15,14 +16,14 @@ import retrofit.http.Path;
 public interface GroceryApi {
 
     @GET("/items/{user}")
-    List<GroceryItemDto> fetchItems(@Path("user") String user);
+    List<GroceryItemDto> fetchItems(@Path("user") String user, @Header("id_token") String idToken);
 
     @POST("/items")
-    void addItem(@Body GroceryItemDto groceryItemDto, Callback<Response> callback);
+    void addItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken, Callback<Response> callback);
 
     @DELETE("/items/{user}/{item}")
-    void deleteItem(@Path("user") String user, @Path("item") String item, Callback<Response> callback);
+    void deleteItem(@Path("user") String user, @Path("item") String item, @Header("id_token") String idToken, Callback<Response> callback);
 
     @PUT("/items")
-    void updateItem(@Body GroceryItemDto groceryItemDto, Callback<Response> callback);
+    void updateItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken, Callback<Response> callback);
 }

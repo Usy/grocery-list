@@ -39,14 +39,16 @@ public class ListActivity extends AppCompatActivity {
     private List<GroceryItemDto> groceryList;
     private GroceryApi groceryApi;
     private ActionMode actionMode;
-    private String userMail;
+    private String accountId;
+    private String idToken;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
-        userMail = intent.getStringExtra(MainActivity.LOGGED_USER_MAIL_TAG);
+        accountId = intent.getStringExtra(MainActivity.LOGGED_USER_ACC_ID_TAG);
+        idToken = intent.getStringExtra(MainActivity.LOGGED_USER_ID_TOKEN_TAG);
 
         setContentView(R.layout.activity_list);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -174,7 +176,7 @@ public class ListActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String name = input.getText().toString();
-                        final GroceryItemDto groceryItemDto = new GroceryItemDto(userMail, name, 0);
+                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0);
                         groceryList.add(groceryItemDto);
                         groceryListAdapter.notifyDataSetChanged();
                         createItem(groceryItemDto);
@@ -204,7 +206,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                List<GroceryItemDto> result = groceryApi.fetchItems(userMail);
+                List<GroceryItemDto> result = groceryApi.fetchItems(accountId, idToken);
                 groceryList.clear();
                 groceryList.addAll(result);
                 runOnUiThread(new Runnable() {
@@ -223,7 +225,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.updateItem(groceryItemDto, new Callback<Response>() {
+                groceryApi.updateItem(groceryItemDto, idToken, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Updating element finished successfully " + response);
@@ -243,7 +245,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.addItem(groceryItemDto, new Callback<Response>() {
+                groceryApi.addItem(groceryItemDto, idToken, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Adding element finished successfully " + response);
@@ -263,7 +265,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.deleteItem(userMail, itemName, new Callback<Response>() {
+                groceryApi.deleteItem(accountId, itemName, idToken, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Item deleted successfully");
