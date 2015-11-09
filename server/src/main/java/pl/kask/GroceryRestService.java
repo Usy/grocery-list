@@ -1,5 +1,6 @@
 package pl.kask;
 
+import pl.kask.auth.VerificationService;
 import pl.kask.dto.GroceryItemDto;
 import pl.kask.model.GroceryItem;
 
@@ -12,67 +13,94 @@ import java.util.List;
 public class GroceryRestService {
 
     private static GroceryService groceryService = new GroceryService();
+    private static VerificationService verificationService = new VerificationService("922182942877-cp1133aa1h9ifade7fh5hdnk7bot1eus.apps.googleusercontent.com");
 
     @GET
     @Path("/save/{name}")
     @Produces("application/json")
-    public Response test(@PathParam("name") String name) {
-        groceryService.persist(new GroceryItem("usy@owner.com", name, 1));
-        return Response.accepted().build();
+    public Response test(@PathParam("name") String name, @HeaderParam("id_token") String idToken) {
+
+        if (verificationService.isVerified(idToken, name)) {
+            return Response.ok().build();
+        } else {
+            return Response.status(401).build();
+        }
     }
 
     @GET
     @Path("/items/{name}")
     @Produces("application/json")
-    public List<GroceryItemDto> getItems(@PathParam("name") String name) {
-        List<GroceryItem> items = groceryService.findByOwner(name);
-        List<GroceryItemDto> result = new ArrayList<>();
-        for (GroceryItem item : items) {
-            result.add(new GroceryItemDto(item));
+    public Response getItems(@PathParam("name") String name, @HeaderParam("id_token") String idToken) {
+        if (verificationService.isVerified(idToken, name)) {
+            List<GroceryItem> items = groceryService.findByOwner(name);
+            List<GroceryItemDto> result = new ArrayList<>();
+            for (GroceryItem item : items) {
+                result.add(new GroceryItemDto(item));
+            }
+            return Response.ok(result).build();
+        } else {
+            return Response.status(401).build();
         }
-        return result;
     }
 
     @POST
     @Path("/items")
     @Consumes("application/json")
-    public void addItem(GroceryItemDto groceryItemDto) {
-        GroceryItem newItem = new GroceryItem(
-                groceryItemDto.getOwner(),
-                groceryItemDto.getItemName(),
-                groceryItemDto.getAmount()
-        );
-        groceryService.persist(newItem);
+    public Response addItem(GroceryItemDto groceryItemDto, @HeaderParam("id_token") String idToken) {
+        String name = groceryItemDto.getOwner();
+        if (verificationService.isVerified(idToken, name)) {
+            GroceryItem newItem = new GroceryItem(
+                    name,
+                    groceryItemDto.getItemName(),
+                    groceryItemDto.getAmount()
+            );
+            groceryService.persist(newItem);
+            return Response.ok().build();
+        } else {
+            return Response.status(401).build();
+        }
+
     }
 
     @DELETE
     @Path("/items/{name}/{item}")
-    public void deleteItem(@PathParam("name") String name, @PathParam("item") String itemName) {
-        List<GroceryItem> items = groceryService.findByOwner(name);
-        for (GroceryItem item : items) {
-            if (item.getItemName().equals(itemName)) {
-                groceryService.delete(item);
-                break;
+    public Response deleteItem(@PathParam("name") String name, @PathParam("item") String itemName, @HeaderParam("id_token") String idToken) {
+        if (verificationService.isVerified(idToken, name)) {
+            List<GroceryItem> items = groceryService.findByOwner(name);
+            for (GroceryItem item : items) {
+                if (item.getItemName().equals(itemName)) {
+                    groceryService.delete(item);
+                    break;
+                }
             }
+            return Response.ok().build();
+        } else {
+            return Response.status(401).build();
         }
     }
 
     @PUT
     @Path("/items")
     @Consumes("application/json")
-    public void updateItem(GroceryItemDto groceryItemDto) {
-        List<GroceryItem> items = groceryService.findByOwner(groceryItemDto.getOwner());
-        GroceryItem oldItem = null;
-        for (GroceryItem item : items) {
-            if (item.getItemName().equals(groceryItemDto.getItemName())) {
-                oldItem = item;
-                break;
+    public Response updateItem(GroceryItemDto groceryItemDto, @HeaderParam("id_token") String idToken) {
+        String name = groceryItemDto.getOwner();
+        if (verificationService.isVerified(idToken, name)) {
+            List<GroceryItem> items = groceryService.findByOwner(name);
+            GroceryItem oldItem = null;
+            for (GroceryItem item : items) {
+                if (item.getItemName().equals(groceryItemDto.getItemName())) {
+                    oldItem = item;
+                    break;
+                }
             }
+            if (oldItem != null) {
+                oldItem.setAmount(groceryItemDto.getAmount());
+                groceryService.update(oldItem);
+            }
+            return Response.ok().build();
+        } else {
+            return Response.status(401).build();
         }
-        if (oldItem == null) {
-            return;
-        }
-        oldItem.setAmount(groceryItemDto.getAmount());
-        groceryService.update(oldItem);
+
     }
 }
