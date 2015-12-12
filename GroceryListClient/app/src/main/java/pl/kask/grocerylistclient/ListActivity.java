@@ -206,7 +206,19 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                List<GroceryItemDto> result = groceryApi.fetchItems(accountId, idToken);
+                List<GroceryItemDto> result;
+                try {
+                    result = groceryApi.fetchItems(accountId, idToken);
+                } catch (Exception e) {
+                    Log.w(TAG, e.getMessage());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(ListActivity.this, "Connection problem.", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return null;
+                }
                 groceryList.clear();
                 groceryList.addAll(result);
                 runOnUiThread(new Runnable() {
