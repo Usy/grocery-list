@@ -25,6 +25,7 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
 import retrofit.Callback;
@@ -41,6 +42,7 @@ public class ListActivity extends AppCompatActivity {
     private ActionMode actionMode;
     private String accountId;
     private String idToken;
+    private String deviceId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +51,15 @@ public class ListActivity extends AppCompatActivity {
         Intent intent = getIntent();
         accountId = intent.getStringExtra(MainActivity.LOGGED_USER_ACC_ID_TAG);
         idToken = intent.getStringExtra(MainActivity.LOGGED_USER_ID_TOKEN_TAG);
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        if (settings.contains("settings.deviceId")) {
+            deviceId = settings.getString("settings.deviceId", "");
+        } else {
+            SharedPreferences.Editor editor = settings.edit();
+            deviceId = UUID.randomUUID().toString();
+            editor.putString("settings.deviceId", deviceId);
+            editor.commit();
+        }
 
         setContentView(R.layout.activity_list);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -193,8 +204,7 @@ public class ListActivity extends AppCompatActivity {
         });
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
-        String ip = settings.getString("ip", "192.168.1.101:8080");
+        String ip = settings.getString("settings.ip", "192.168.1.101:8080");
         String endpoint = "http://" + ip + "/GroceryList/rest/grocery";
         Log.d(TAG, endpoint);
         RestAdapter restAdapter = new RestAdapter.Builder()
@@ -208,7 +218,7 @@ public class ListActivity extends AppCompatActivity {
             protected Void doInBackground(Void... params) {
                 List<GroceryItemDto> result;
                 try {
-                    result = groceryApi.fetchItems(accountId, idToken);
+                    result = groceryApi.fetchItems(accountId, idToken, deviceId);
                 } catch (Exception e) {
                     Log.w(TAG, e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -237,7 +247,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.updateItem(groceryItemDto, idToken, new Callback<Response>() {
+                groceryApi.updateItem(groceryItemDto, idToken, deviceId, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Updating element finished successfully " + response);
@@ -257,7 +267,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.addItem(groceryItemDto, idToken, new Callback<Response>() {
+                groceryApi.addItem(groceryItemDto, idToken, deviceId, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Adding element finished successfully " + response);
@@ -277,7 +287,7 @@ public class ListActivity extends AppCompatActivity {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                groceryApi.deleteItem(accountId, itemName, idToken, new Callback<Response>() {
+                groceryApi.deleteItem(accountId, itemName, idToken, deviceId, new Callback<Response>() {
                     @Override
                     public void success(Response r, Response response) {
                         Log.i(TAG, "Item deleted successfully");

@@ -16,14 +16,19 @@ import retrofit.http.Path;
 public interface GroceryApi {
 
     @GET("/items/{user}")
-    List<GroceryItemDto> fetchItems(@Path("user") String user, @Header("id_token") String idToken);
+    List<GroceryItemDto> fetchItems(@Path("user") String user, @Header("id_token") String idToken,
+                    @Header("device_id") String deviceId);
 
     @POST("/items")
-    void addItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken, Callback<Response> callback);
+    void addItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken,
+                    @Header("device_id") String deviceId, Callback<Response> callback);
 
     @DELETE("/items/{user}/{item}")
-    void deleteItem(@Path("user") String user, @Path("item") String item, @Header("id_token") String idToken, Callback<Response> callback);
+    void deleteItem(@Path("user") String user, @Path("item") String item,
+                    @Header("id_token") String idToken, @Header("device_id") String deviceId,
+                    Callback<Response> callback);
 
     @PUT("/items")
-    void updateItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken, Callback<Response> callback);
+    void updateItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken,
+                    @Header("device_id") String deviceId, Callback<Response> callback);
 }

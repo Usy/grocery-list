@@ -24,6 +24,8 @@ import com.google.android.gms.common.api.OptionalPendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 
+import java.util.UUID;
+
 
 public class MainActivity extends AppCompatActivity implements
         View.OnClickListener,
@@ -45,6 +47,8 @@ public class MainActivity extends AppCompatActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        prepareDeviceId();
 
         // Set up button click listeners
         findViewById(R.id.sign_in_button).setOnClickListener(this);
@@ -191,10 +195,19 @@ public class MainActivity extends AppCompatActivity implements
             public void onClick(DialogInterface dialog, int which) {
                 SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
                 SharedPreferences.Editor editor = settings.edit();
-                editor.putString("ip", input.getText().toString());
+                editor.putString("settings.ip", input.getText().toString());
                 editor.commit();
             }
         });
         builder.show();
+    }
+
+    private void prepareDeviceId() {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        if (!settings.contains("settings.deviceId")) {
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("settings.deviceId", UUID.randomUUID().toString());
+            editor.commit();
+        }
     }
 }
