@@ -1,8 +1,11 @@
 package pl.kask;
 
+import pl.kask.dto.SynchronizationRequest;
+import pl.kask.dto.SynchronizationResponse;
 import pl.kask.model.GroceryDao;
 import pl.kask.model.GroceryItem;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GroceryService {
@@ -18,41 +21,71 @@ public class GroceryService {
     }
 
     public void persist(GroceryItem groceryItem) {
-        groceryDao.openCurrentSessionWithTransaction();
         groceryDao.persist(groceryItem);
-        groceryDao.closeCurrentSessionWithTransaction();
     }
 
     public void update(GroceryItem groceryItem) {
-        groceryDao.openCurrentSessionWithTransaction();
         groceryDao.update(groceryItem);
-        groceryDao.closeCurrentSessionWithTransaction();
     }
 
     public void delete(GroceryItem groceryItem) {
-        groceryDao.openCurrentSessionWithTransaction();
         groceryDao.delete(groceryItem);
-        groceryDao.closeCurrentSessionWithTransaction();
     }
 
     public GroceryItem findById(long id) {
-        groceryDao.openCurrentSession();
-        GroceryItem groceryItem = groceryDao.findById(id);
-        groceryDao.closeCurrentSession();
-        return groceryItem;
+        return groceryDao.findById(id);
     }
 
     public List<GroceryItem> findAll() {
-        groceryDao.openCurrentSession();
-        List<GroceryItem> groceryItems = groceryDao.findAll();
-        groceryDao.closeCurrentSession();
-        return groceryItems;
+        return groceryDao.findAll();
     }
 
     public List<GroceryItem> findByOwner(String owner) {
-        groceryDao.openCurrentSession();
-        List<GroceryItem> groceryItems = groceryDao.findByOwner(owner);
-        groceryDao.closeCurrentSession();
-        return groceryItems;
+        return groceryDao.findByOwner(owner);
+    }
+
+    public SynchronizationResponse synchronize(String userId, String deviceId, SynchronizationRequest request) {
+
+        List<GroceryItem> items = findByOwner(userId);
+
+        List<String> productsToRemove = request.getProductsToRemove();
+        List<GroceryItem> itemsToRemove = new ArrayList<>();
+        items.stream().filter(item -> productsToRemove.contains(item.getItemName())).forEach(item -> {
+            itemsToRemove.add(item);
+            delete(item);
+        });
+        items.removeAll(itemsToRemove);
+
+        for (String productName : request.getProductsToAdd()) {
+            if (items.stream().anyMatch(item -> item.getItemName().equals(productName))) {
+                break;
+            }
+
+            GroceryItem newItem = new GroceryItem(userId, productName);
+            persist(newItem);
+            items.add(newItem);
+        }
+
+        SynchronizationResponse result = new SynchronizationResponse();
+
+        for (GroceryItem item : items) {
+            if (!request.getSubSums().containsKey(item.getItemName())) {
+                result.getProductsToAdd().add(item.getItemName());
+            } else {
+                int newSubSum = request.getSubSums().get(item.getItemName());
+                item.getSubSums().put(deviceId, newSubSum);
+                update(item);
+            }
+            Integer totalAmount = item.getSubSums().values().stream().reduce(0, Integer::sum);
+            result.getTotalAmounts().put(item.getItemName(), totalAmount);
+        }
+
+        for (String productName : request.getSubSums().keySet()) {
+            if (items.stream().noneMatch(item -> item.getItemName().equals(productName))) {
+                result.getProductsToRemove().add(productName);
+            }
+        }
+
+        return result;
     }
 }

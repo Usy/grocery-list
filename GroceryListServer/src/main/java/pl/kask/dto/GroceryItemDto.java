@@ -22,7 +22,6 @@ public class GroceryItemDto implements Serializable {
     public GroceryItemDto(GroceryItem entity) {
         this.owner = entity.getOwner();
         this.itemName = entity.getItemName();
-        this.amount = entity.getAmount();
     }
 
     public String getOwner() {
