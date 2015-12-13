@@ -3,6 +3,8 @@ package pl.kask.model;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity
 @Table(name = "grocery_item", indexes = {
@@ -19,6 +21,12 @@ public class GroceryItem {
     private String owner;
     private String itemName;
     private int amount;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @JoinTable(name = "grocery_items_amounts", joinColumns = @JoinColumn(name = "id"))
+    @MapKeyColumn(name = "device_id")
+    @Column(name = "amount")
+    private Map<String, Integer> subSums = new HashMap<>();
 
     public GroceryItem() {
     }
@@ -59,5 +67,13 @@ public class GroceryItem {
 
     public void setAmount(int amount) {
         this.amount = amount;
+    }
+
+    public Map<String, Integer> getSubSums() {
+        return subSums;
+    }
+
+    public void setSubSums(Map<String, Integer> subSums) {
+        this.subSums = subSums;
     }
 }
