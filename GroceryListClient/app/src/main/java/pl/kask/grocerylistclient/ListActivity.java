@@ -24,25 +24,51 @@ import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
-import retrofit.Callback;
+import pl.kask.grocerylistclient.dto.SynchronizationRequest;
+import pl.kask.grocerylistclient.dto.SynchronizationResponse;
 import retrofit.RestAdapter;
-import retrofit.RetrofitError;
-import retrofit.client.Response;
 
 public class ListActivity extends AppCompatActivity {
 
     private static final String TAG = ListActivity.class.getName();
 
     private List<GroceryItemDto> groceryList;
+    private ArrayAdapter<GroceryItemDto> groceryListAdapter;
     private GroceryApi groceryApi;
     private ActionMode actionMode;
     private String accountId;
     private String idToken;
     private String deviceId;
+    private List<String> itemsToAdd = new ArrayList<>();
+    private List<String> itemsToRemove = new ArrayList<>();
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_synchronize:
+                Toast.makeText(ListActivity.this, "Synchronization started.", Toast.LENGTH_LONG).show();
+                synchronize();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,7 +93,7 @@ public class ListActivity extends AppCompatActivity {
 
         final ListView groceryItemsListView = (ListView) findViewById(R.id.groceryItemsListView);
         groceryList = new ArrayList<>();
-        final ArrayAdapter<GroceryItemDto> groceryListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, groceryList);
+        groceryListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, groceryList);
         groceryItemsListView.setAdapter(groceryListAdapter);
         groceryItemsListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
 
@@ -116,8 +142,10 @@ public class ListActivity extends AppCompatActivity {
                                 int amount = groceryItemDto.getAmount();
                                 amount += difference;
                                 groceryItemDto.setAmount(amount);
+                                int localAmount = groceryItemDto.getLocalAmount();
+                                groceryItemDto.setLocalAmount(localAmount + difference);
+                                persistGroceryItem(groceryItemDto);
                                 groceryListAdapter.notifyDataSetChanged();
-                                updateItem(groceryItemDto);
                             }
                         });
                         builder.show();
@@ -137,8 +165,10 @@ public class ListActivity extends AppCompatActivity {
                                     return;
                                 }
                                 groceryItemDto.setAmount(amount);
+                                int localAmount = groceryItemDto.getLocalAmount();
+                                groceryItemDto.setLocalAmount(localAmount - difference);
+                                persistGroceryItem(groceryItemDto);
                                 groceryListAdapter.notifyDataSetChanged();
-                                updateItem(groceryItemDto);
                             }
                         });
                         builder.show();
@@ -146,9 +176,10 @@ public class ListActivity extends AppCompatActivity {
                         return true;
                     case R.id.menu_remove:
                         final GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
+                        itemsToRemove.add(groceryItemDto.getItemName());
+                        removeGroceryItem(groceryItemDto.getItemName());
                         groceryList.remove(checkedItemPosition);
                         groceryListAdapter.notifyDataSetChanged();
-                        removeItem(groceryItemDto.getItemName());
                         mode.finish();
                         return true;
                     default:
@@ -187,10 +218,12 @@ public class ListActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String name = input.getText().toString();
-                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0);
+                        itemsToAdd.add(name);
+                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0);
+                        persistGroceryItem(groceryItemDto);
                         groceryList.add(groceryItemDto);
+                        Collections.sort(groceryList);
                         groceryListAdapter.notifyDataSetChanged();
-                        createItem(groceryItemDto);
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -213,93 +246,143 @@ public class ListActivity extends AppCompatActivity {
 
         groceryApi = restAdapter.create(GroceryApi.class);
 
+        loadGroceryItems();
+        loadItemsToAdd();
+        loadItemsToRemove();
+        groceryListAdapter.notifyDataSetChanged();
+    }
+
+    private void synchronize() {
         new AsyncTask<Void, Void, Void>() {
+
             @Override
             protected Void doInBackground(Void... params) {
-                List<GroceryItemDto> result;
+                SynchronizationRequest request = new SynchronizationRequest();
+                for (GroceryItemDto groceryItem : groceryList) {
+                    request.getSubSums().put(groceryItem.getItemName(), groceryItem.getLocalAmount());
+                }
+                request.setProductsToAdd(itemsToAdd);
+                request.setProductsToRemove(itemsToRemove);
+
+                SynchronizationResponse response;
                 try {
-                    result = groceryApi.fetchItems(accountId, idToken, deviceId);
-                } catch (Exception e) {
-                    Log.w(TAG, e.getMessage());
+                    response = groceryApi.synchronize(accountId, request, idToken, deviceId);
+                    Log.d(TAG, "Got response: " + response);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(ListActivity.this, "Connection problem.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(ListActivity.this, "Synchronization finished.", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } catch (Throwable t) {
+                    Log.w(TAG, t.getMessage());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(ListActivity.this, "Synchronization failed.", Toast.LENGTH_LONG).show();
                         }
                     });
                     return null;
                 }
-                groceryList.clear();
-                groceryList.addAll(result);
+
+                itemsToAdd.clear();
+                persistItemsToAdd();
+                itemsToRemove.clear();
+                persistItemsToRemove();
+
+                for (String productName : response.getProductsToAdd()) {
+                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
+                    persistGroceryItem(newItem);
+                    groceryList.add(newItem);
+                }
+                for (String productName : response.getProductsToRemove()) {
+                    List<GroceryItemDto> itemsToRemove = new ArrayList<>();
+                    for (GroceryItemDto groceryItem : groceryList) {
+                        if (groceryItem.getItemName().equals(productName)) {
+                            itemsToRemove.add(groceryItem);
+                            removeGroceryItem(productName);
+                        }
+                    }
+                    groceryList.removeAll(itemsToRemove);
+                }
+                for (GroceryItemDto groceryItem : groceryList) {
+                    Integer totalAmount = response.getTotalAmounts().get(groceryItem.getItemName());
+                    if (totalAmount != null) {
+                        groceryItem.setAmount(totalAmount);
+                        persistGroceryItem(groceryItem);
+                    }
+                }
+                Collections.sort(groceryList);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         groceryListAdapter.notifyDataSetChanged();
                     }
                 });
-
                 return null;
             }
         }.execute();
     }
 
-    private void updateItem(final GroceryItemDto groceryItemDto) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                groceryApi.updateItem(groceryItemDto, idToken, deviceId, new Callback<Response>() {
-                    @Override
-                    public void success(Response r, Response response) {
-                        Log.i(TAG, "Updating element finished successfully " + response);
-                    }
-
-                    @Override
-                    public void failure(RetrofitError error) {
-                        Log.e(TAG, "There was a problem during update: " + error);
-                    }
-                });
-                return null;
-            }
-        }.execute();
+    private void persistItemsToAdd() {
+        persistList("grocery.itemsToAdd", itemsToAdd);
     }
 
-    private void createItem(final GroceryItemDto groceryItemDto) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                groceryApi.addItem(groceryItemDto, idToken, deviceId, new Callback<Response>() {
-                    @Override
-                    public void success(Response r, Response response) {
-                        Log.i(TAG, "Adding element finished successfully " + response);
-                    }
-
-                    @Override
-                    public void failure(RetrofitError error) {
-                        Log.e(TAG, "There was a problem during creation: " + error);
-                    }
-                });
-                return null;
-            }
-        }.execute();
+    private void loadItemsToAdd() {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        Set<String> items = settings.getStringSet("grocery.itemsToAdd", new HashSet<String>());
+        itemsToAdd = new ArrayList<>(items);
     }
 
-    private void removeItem(final String itemName) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                groceryApi.deleteItem(accountId, itemName, idToken, deviceId, new Callback<Response>() {
-                    @Override
-                    public void success(Response r, Response response) {
-                        Log.i(TAG, "Item deleted successfully");
-                    }
+    private void persistItemsToRemove() {
+        persistList("grocery.itemsToRemove", itemsToRemove);
+    }
 
-                    @Override
-                    public void failure(RetrofitError error) {
-                        Log.e(TAG, "There was a problem during deletion " + error);
-                    }
-                });
-                return null;
+    private void loadItemsToRemove() {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        Set<String> items = settings.getStringSet("grocery.itemsToRemove", new HashSet<String>());
+        itemsToRemove = new ArrayList<>(items);
+    }
+
+    private void persistList(String key, List<String> values) {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putStringSet(key, new HashSet<>(values));
+        editor.commit();
+    }
+
+    private void persistGroceryItem(GroceryItemDto groceryItem) {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putInt("grocery.total." + groceryItem.getItemName(), groceryItem.getAmount());
+        editor.putInt("grocery.local." + groceryItem.getItemName(), groceryItem.getLocalAmount());
+        editor.commit();
+    }
+
+    private void removeGroceryItem(String itemName) {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.remove("grocery.total." + itemName);
+        editor.remove("grocery.local." + itemName);
+        editor.commit();
+    }
+
+    private void loadGroceryItems() {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        Set<String> keys = settings.getAll().keySet();
+        Pattern pattern = Pattern.compile("grocery\\.total\\.(.*)");
+        groceryList.clear();
+        for (String key : keys) {
+            Matcher matcher = pattern.matcher(key);
+            if (matcher.find()) {
+                String itemName = matcher.group(1);
+                Log.d(TAG, "Found: " + itemName);
+                int totalAmount = settings.getInt("grocery.total." + itemName, 0);
+                int localAmount = settings.getInt("grocery.local." + itemName, 0);
+
+                groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount));
             }
-        }.execute();
+        }
+        Collections.sort(groceryList);
     }
 }

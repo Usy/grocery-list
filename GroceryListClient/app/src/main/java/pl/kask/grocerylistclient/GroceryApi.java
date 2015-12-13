@@ -3,6 +3,8 @@ package pl.kask.grocerylistclient;
 import java.util.List;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
+import pl.kask.grocerylistclient.dto.SynchronizationRequest;
+import pl.kask.grocerylistclient.dto.SynchronizationResponse;
 import retrofit.Callback;
 import retrofit.client.Response;
 import retrofit.http.Body;
@@ -31,4 +33,8 @@ public interface GroceryApi {
     @PUT("/items")
     void updateItem(@Body GroceryItemDto groceryItemDto, @Header("id_token") String idToken,
                     @Header("device_id") String deviceId, Callback<Response> callback);
+
+    @POST("/sync/{user}")
+    SynchronizationResponse synchronize(@Path("user") String user, @Body SynchronizationRequest request,
+                    @Header("id_token") String idToken, @Header("device_id") String deviceId);
 }

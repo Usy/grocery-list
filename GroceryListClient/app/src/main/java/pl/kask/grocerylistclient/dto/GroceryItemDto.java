@@ -2,19 +2,21 @@ package pl.kask.grocerylistclient.dto;
 
 import java.io.Serializable;
 
-public class GroceryItemDto implements Serializable {
+public class GroceryItemDto implements Serializable, Comparable<GroceryItemDto> {
 
     private String owner;
     private String itemName;
     private int amount;
+    private int localAmount;
 
     public GroceryItemDto() {
     }
 
-    public GroceryItemDto(String owner, String itemName, int amount) {
+    public GroceryItemDto(String owner, String itemName, int amount, int localAmount) {
         this.owner = owner;
         this.itemName = itemName;
         this.amount = amount;
+        this.localAmount = localAmount;
     }
 
     public String getOwner() {
@@ -41,8 +43,21 @@ public class GroceryItemDto implements Serializable {
         this.amount = amount;
     }
 
+    public int getLocalAmount() {
+        return localAmount;
+    }
+
+    public void setLocalAmount(int localAmount) {
+        this.localAmount = localAmount;
+    }
+
     @Override
     public String toString() {
         return itemName + " (" + amount + ")";
+    }
+
+    @Override
+    public int compareTo(GroceryItemDto another) {
+        return this.getItemName().compareTo(another.getItemName());
     }
 }
