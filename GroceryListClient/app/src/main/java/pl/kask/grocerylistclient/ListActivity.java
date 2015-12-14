@@ -41,6 +41,11 @@ public class ListActivity extends AppCompatActivity {
 
     private static final String TAG = ListActivity.class.getName();
 
+    public static final String LOCAL_PREFIX = ".grocery.local.";
+    public static final String TOTAL_PREFIX = ".grocery.total.";
+    public static final String TO_ADD_PREFIX = ".grocery.itemsToAdd";
+    public static final String TO_REMOVE_PREFIX = ".grocery.itemsToRemove";
+
     private List<GroceryItemDto> groceryList;
     private ArrayAdapter<GroceryItemDto> groceryListAdapter;
     private GroceryApi groceryApi;
@@ -255,7 +260,7 @@ public class ListActivity extends AppCompatActivity {
         });
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        String ip = settings.getString("settings.ip", "192.168.1.101:8080");
+        String ip = settings.getString("settings.ip", "mono-organizer.cloudapp.net:8080");
         String endpoint = "http://" + ip + "/GroceryList/rest/grocery";
         Log.d(TAG, endpoint);
         RestAdapter restAdapter = new RestAdapter.Builder()
@@ -263,7 +268,12 @@ public class ListActivity extends AppCompatActivity {
                 .build();
 
         groceryApi = restAdapter.create(GroceryApi.class);
+    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "Loading items...");
         loadGroceryItems();
         loadItemsToAdd();
         loadItemsToRemove();
@@ -308,14 +318,16 @@ public class ListActivity extends AppCompatActivity {
                 itemsToRemove.clear();
                 persistItemsToRemove();
 
+                outer:
                 for (String productName : response.getProductsToAdd()) {
                     for (GroceryItemDto groceryItem : groceryList) {
-                        if (!groceryItem.getItemName().equals(productName)) {
-                            GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
-                            persistGroceryItem(newItem);
-                            groceryList.add(newItem);
+                        if (groceryItem.getItemName().equals(productName)) {
+                            continue outer;
                         }
                     }
+                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
+                    persistGroceryItem(newItem);
+                    groceryList.add(newItem);
                 }
                 for (String productName : response.getProductsToRemove()) {
                     List<GroceryItemDto> itemsToRemove = new ArrayList<>();
@@ -347,22 +359,22 @@ public class ListActivity extends AppCompatActivity {
     }
 
     private void persistItemsToAdd() {
-        persistList("grocery.itemsToAdd", itemsToAdd);
+        persistList(accountId + TO_ADD_PREFIX, itemsToAdd);
     }
 
     private void loadItemsToAdd() {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
-        Set<String> items = settings.getStringSet("grocery.itemsToAdd", new HashSet<String>());
+        Set<String> items = settings.getStringSet(accountId + TO_ADD_PREFIX, new HashSet<String>());
         itemsToAdd = new ArrayList<>(items);
     }
 
     private void persistItemsToRemove() {
-        persistList("grocery.itemsToRemove", itemsToRemove);
+        persistList(accountId + TO_REMOVE_PREFIX, itemsToRemove);
     }
 
     private void loadItemsToRemove() {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
-        Set<String> items = settings.getStringSet("grocery.itemsToRemove", new HashSet<String>());
+        Set<String> items = settings.getStringSet(accountId + TO_REMOVE_PREFIX, new HashSet<String>());
         itemsToRemove = new ArrayList<>(items);
     }
 
@@ -376,31 +388,32 @@ public class ListActivity extends AppCompatActivity {
     private void persistGroceryItem(GroceryItemDto groceryItem) {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
         SharedPreferences.Editor editor = settings.edit();
-        editor.putInt("grocery.total." + groceryItem.getItemName(), groceryItem.getAmount());
-        editor.putInt("grocery.local." + groceryItem.getItemName(), groceryItem.getLocalAmount());
+        editor.putInt(accountId + TOTAL_PREFIX + groceryItem.getItemName(), groceryItem.getAmount());
+        editor.putInt(accountId + LOCAL_PREFIX + groceryItem.getItemName(), groceryItem.getLocalAmount());
         editor.commit();
     }
 
     private void removeGroceryItem(String itemName) {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
         SharedPreferences.Editor editor = settings.edit();
-        editor.remove("grocery.total." + itemName);
-        editor.remove("grocery.local." + itemName);
+        editor.remove(accountId + TOTAL_PREFIX + itemName);
+        editor.remove(accountId + LOCAL_PREFIX + itemName);
         editor.commit();
     }
 
     private void loadGroceryItems() {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
         Set<String> keys = settings.getAll().keySet();
-        Pattern pattern = Pattern.compile("grocery\\.total\\.(.*)");
+        Pattern pattern = Pattern.compile(accountId + "\\.grocery\\.total\\.(.*)");
         groceryList.clear();
         for (String key : keys) {
             Matcher matcher = pattern.matcher(key);
+            Log.d(TAG, "Key: " + key);
             if (matcher.find()) {
                 String itemName = matcher.group(1);
                 Log.d(TAG, "Found: " + itemName);
-                int totalAmount = settings.getInt("grocery.total." + itemName, 0);
-                int localAmount = settings.getInt("grocery.local." + itemName, 0);
+                int totalAmount = settings.getInt(accountId + TOTAL_PREFIX + itemName, 0);
+                int localAmount = settings.getInt(accountId + LOCAL_PREFIX + itemName, 0);
 
                 groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount));
             }
