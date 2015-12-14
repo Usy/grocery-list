@@ -176,7 +176,13 @@ public class ListActivity extends AppCompatActivity {
                         return true;
                     case R.id.menu_remove:
                         final GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
-                        itemsToRemove.add(groceryItemDto.getItemName());
+                        String itemName = groceryItemDto.getItemName();
+                        itemsToRemove.add(itemName);
+                        if (itemsToAdd.contains(itemName)) {
+                            itemsToAdd.remove(itemName);
+                            persistItemsToAdd();
+                        }
+                        persistItemsToRemove();
                         removeGroceryItem(groceryItemDto.getItemName());
                         groceryList.remove(checkedItemPosition);
                         groceryListAdapter.notifyDataSetChanged();
@@ -218,7 +224,19 @@ public class ListActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String name = input.getText().toString();
+                        for (GroceryItemDto groceryItem : groceryList) {
+                            if (groceryItem.getItemName().equals(name)) {
+                                Toast.makeText(ListActivity.this, name + " already exists.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                        }
+
                         itemsToAdd.add(name);
+                        if (itemsToRemove.contains(name)) {
+                            itemsToRemove.remove(name);
+                            persistItemsToRemove();
+                        }
+                        persistItemsToAdd();
                         final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0);
                         persistGroceryItem(groceryItemDto);
                         groceryList.add(groceryItemDto);
@@ -291,9 +309,13 @@ public class ListActivity extends AppCompatActivity {
                 persistItemsToRemove();
 
                 for (String productName : response.getProductsToAdd()) {
-                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
-                    persistGroceryItem(newItem);
-                    groceryList.add(newItem);
+                    for (GroceryItemDto groceryItem : groceryList) {
+                        if (!groceryItem.getItemName().equals(productName)) {
+                            GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
+                            persistGroceryItem(newItem);
+                            groceryList.add(newItem);
+                        }
+                    }
                 }
                 for (String productName : response.getProductsToRemove()) {
                     List<GroceryItemDto> itemsToRemove = new ArrayList<>();
