@@ -2,6 +2,7 @@ package pl.kask;
 
 import pl.kask.dto.SynchronizationRequest;
 import pl.kask.dto.SynchronizationResponse;
+import pl.kask.model.AccountDao;
 import pl.kask.model.GroceryDao;
 import pl.kask.model.GroceryItem;
 
@@ -11,9 +12,11 @@ import java.util.List;
 public class GroceryService {
 
     private static GroceryDao groceryDao;
+    private static AccountDao accountDao;
 
-    public GroceryService() {
+    public GroceryService(AccountDao accountDao) {
         groceryDao = new GroceryDao();
+        this.accountDao = accountDao;
     }
 
     public GroceryDao getGroceryDao() {
@@ -69,15 +72,21 @@ public class GroceryService {
         SynchronizationResponse result = new SynchronizationResponse();
 
         for (GroceryItem item : items) {
-            if (!request.getSubSums().containsKey(item.getItemName())) {
-                result.getProductsToAdd().add(item.getItemName());
+            String itemName = item.getItemName();
+            if (!request.getSubSums().containsKey(itemName)) {
+                result.getProductsToAdd().add(itemName);
             } else {
-                int newSubSum = request.getSubSums().get(item.getItemName());
+                if (request.getShopNames().containsKey(itemName)) {
+                    String shopName = request.getShopNames().get(itemName);
+                    item.setShopName(shopName);
+                }
+                int newSubSum = request.getSubSums().get(itemName);
                 item.getSubSums().put(deviceId, newSubSum);
                 update(item);
             }
             Integer totalAmount = item.getSubSums().values().stream().reduce(0, Integer::sum);
-            result.getTotalAmounts().put(item.getItemName(), totalAmount);
+            result.getTotalAmounts().put(itemName, totalAmount);
+            result.getShopNames().put(itemName, item.getShopName());
         }
 
         for (String productName : request.getSubSums().keySet()) {

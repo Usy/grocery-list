@@ -9,8 +9,9 @@
     <property name="connection.username">grocery</property>
     <property name="connection.password">admin</property>
     <!-- DB schema will be updated if needed -->
-    <!--<property name="hbm2ddl.auto">update</property>-->
+    <property name="hbm2ddl.auto">update</property>
 
     <mapping class="pl.kask.model.GroceryItem"/>
+    <mapping class="pl.kask.model.Account"/>
   </session-factory>
 </hibernate-configuration>

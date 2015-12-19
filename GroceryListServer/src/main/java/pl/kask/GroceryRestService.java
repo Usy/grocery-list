@@ -4,6 +4,7 @@ import pl.kask.auth.VerificationService;
 import pl.kask.dto.GroceryItemDto;
 import pl.kask.dto.SynchronizationRequest;
 import pl.kask.dto.SynchronizationResponse;
+import pl.kask.model.AccountDao;
 import pl.kask.model.GroceryItem;
 
 import javax.ws.rs.*;
@@ -17,8 +18,10 @@ public class GroceryRestService {
 
     private static final Logger log = Logger.getLogger(GroceryRestService.class.getName());
 
-    private static GroceryService groceryService = new GroceryService();
-    private static VerificationService verificationService = new VerificationService("922182942877-cp1133aa1h9ifade7fh5hdnk7bot1eus.apps.googleusercontent.com");
+    private static AccountDao accountDao = new AccountDao();
+
+    private static GroceryService groceryService = new GroceryService(accountDao);
+    private static VerificationService verificationService = new VerificationService("922182942877-cp1133aa1h9ifade7fh5hdnk7bot1eus.apps.googleusercontent.com", accountDao);
 
     @POST
     @Path("/sync/{name}")
