@@ -11,7 +11,7 @@ public class SynchronizationRequest implements Serializable {
     private List<String> productsToAdd;
     private List<String> productsToRemove;
     private Map<String, Integer> subSums;
-    private Map<String, String> shopNames;
+    private Map<String, ShopNameDto> shopNames;
 
     public SynchronizationRequest() {
         productsToAdd = new ArrayList<>();
@@ -27,7 +27,7 @@ public class SynchronizationRequest implements Serializable {
         shopNames = new HashMap<>();
     }
 
-    public SynchronizationRequest(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> subSums, Map<String, String> shopNames) {
+    public SynchronizationRequest(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> subSums, Map<String, ShopNameDto> shopNames) {
         this.productsToAdd = productsToAdd;
         this.productsToRemove = productsToRemove;
         this.subSums = subSums;
@@ -58,11 +58,11 @@ public class SynchronizationRequest implements Serializable {
         this.subSums = subSums;
     }
 
-    public Map<String, String> getShopNames() {
+    public Map<String, ShopNameDto> getShopNames() {
         return shopNames;
     }
 
-    public void setShopNames(Map<String, String> shopNames) {
+    public void setShopNames(Map<String, ShopNameDto> shopNames) {
         this.shopNames = shopNames;
     }
 
@@ -72,6 +72,7 @@ public class SynchronizationRequest implements Serializable {
                 "productsToAdd=" + productsToAdd +
                 ", productsToRemove=" + productsToRemove +
                 ", subSums=" + subSums +
+                ", shopNames=" + shopNames +
                 '}';
     }
 }

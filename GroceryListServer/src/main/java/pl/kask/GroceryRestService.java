@@ -34,6 +34,7 @@ public class GroceryRestService {
             log.info(request.toString());
 
             SynchronizationResponse result = groceryService.synchronize(name, deviceId, request);
+            log.info(result.toString());
             return Response.ok(result).build();
         } else {
             return Response.status(401).build();

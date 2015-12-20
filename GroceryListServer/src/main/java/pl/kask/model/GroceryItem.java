@@ -21,6 +21,7 @@ public class GroceryItem {
     private String owner;
     private String itemName;
     private String shopName;
+    private long timestamp;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @JoinTable(name = "grocery_items_amounts", joinColumns = @JoinColumn(name = "id"))
@@ -36,10 +37,11 @@ public class GroceryItem {
         this.itemName = itemName;
     }
 
-    public GroceryItem(String owner, String itemName, String shopName) {
+    public GroceryItem(String owner, String itemName, String shopName, long timestamp) {
         this.owner = owner;
         this.itemName = itemName;
         this.shopName = shopName;
+        this.timestamp = timestamp;
     }
 
     public long getId() {
@@ -72,6 +74,14 @@ public class GroceryItem {
 
     public void setShopName(String shopName) {
         this.shopName = shopName;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 
     public Map<String, Integer> getSubSums() {

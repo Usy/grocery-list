@@ -1,5 +1,6 @@
 package pl.kask;
 
+import pl.kask.dto.ShopNameDto;
 import pl.kask.dto.SynchronizationRequest;
 import pl.kask.dto.SynchronizationResponse;
 import pl.kask.model.AccountDao;
@@ -76,9 +77,10 @@ public class GroceryService {
             if (!request.getSubSums().containsKey(itemName)) {
                 result.getProductsToAdd().add(itemName);
             } else {
-                if (request.getShopNames().containsKey(itemName)) {
-                    String shopName = request.getShopNames().get(itemName);
-                    item.setShopName(shopName);
+                ShopNameDto shopName = request.getShopNames().get(itemName);
+                if (shopName != null && shopName.getTimestamp() > item.getTimestamp()) {
+                    item.setShopName(shopName.getName());
+                    item.setTimestamp(shopName.getTimestamp());
                 }
                 int newSubSum = request.getSubSums().get(itemName);
                 item.getSubSums().put(deviceId, newSubSum);
@@ -86,7 +88,7 @@ public class GroceryService {
             }
             Integer totalAmount = item.getSubSums().values().stream().reduce(0, Integer::sum);
             result.getTotalAmounts().put(itemName, totalAmount);
-            result.getShopNames().put(itemName, item.getShopName());
+            result.getShopNames().put(itemName, new ShopNameDto(item.getShopName(), item.getTimestamp()));
         }
 
         for (String productName : request.getSubSums().keySet()) {
