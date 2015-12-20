@@ -33,6 +33,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
+import pl.kask.grocerylistclient.dto.ShopNameDto;
 import pl.kask.grocerylistclient.dto.SynchronizationRequest;
 import pl.kask.grocerylistclient.dto.SynchronizationResponse;
 import retrofit.RestAdapter;
@@ -43,6 +44,8 @@ public class ListActivity extends AppCompatActivity {
 
     public static final String LOCAL_PREFIX = ".grocery.local.";
     public static final String TOTAL_PREFIX = ".grocery.total.";
+    public static final String SHOP_NAME_PREFIX = ".grocery.shop.";
+    public static final String TIMESTAMP_PREFIX = ".grocery.timestamp.";
     public static final String TO_ADD_PREFIX = ".grocery.itemsToAdd";
     public static final String TO_REMOVE_PREFIX = ".grocery.itemsToRemove";
 
@@ -98,7 +101,7 @@ public class ListActivity extends AppCompatActivity {
 
         final ListView groceryItemsListView = (ListView) findViewById(R.id.groceryItemsListView);
         groceryList = new ArrayList<>();
-        groceryListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, groceryList);
+        groceryListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_single_choice, groceryList);
         groceryItemsListView.setAdapter(groceryListAdapter);
         groceryItemsListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
 
@@ -193,6 +196,31 @@ public class ListActivity extends AppCompatActivity {
                         groceryListAdapter.notifyDataSetChanged();
                         mode.finish();
                         return true;
+                    case R.id.menu_edit:
+                        AlertDialog.Builder editBuilder = new AlertDialog.Builder(ListActivity.this);
+                        final EditText shopNameInput = new EditText(ListActivity.this);
+                        editBuilder.setView(shopNameInput);
+                        editBuilder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.cancel();
+                            }
+                        });
+                        editBuilder.setTitle(name + ": edit shop name");
+                        editBuilder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
+                                String shopName = shopNameInput.getText().toString();
+                                long timestamp = System.currentTimeMillis();
+                                groceryItemDto.setShopName(new ShopNameDto(shopName, timestamp));
+                                persistGroceryItem(groceryItemDto);
+                                groceryListAdapter.notifyDataSetChanged();
+                            }
+                        });
+                        editBuilder.show();
+                        mode.finish(); // Action picked, so close the CAB
+                        return true;
                     default:
                         return false;
                 }
@@ -201,6 +229,8 @@ public class ListActivity extends AppCompatActivity {
             // Called when the user exits the action mode
             @Override
             public void onDestroyActionMode(ActionMode mode) {
+                int position = groceryItemsListView.getCheckedItemPosition();
+                groceryItemsListView.setItemChecked(position, false);
                 actionMode = null;
             }
         };
@@ -242,7 +272,7 @@ public class ListActivity extends AppCompatActivity {
                             persistItemsToRemove();
                         }
                         persistItemsToAdd();
-                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0);
+                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0, new ShopNameDto());
                         persistGroceryItem(groceryItemDto);
                         groceryList.add(groceryItemDto);
                         Collections.sort(groceryList);
@@ -288,12 +318,14 @@ public class ListActivity extends AppCompatActivity {
                 SynchronizationRequest request = new SynchronizationRequest();
                 for (GroceryItemDto groceryItem : groceryList) {
                     request.getSubSums().put(groceryItem.getItemName(), groceryItem.getLocalAmount());
+                    request.getShopNames().put(groceryItem.getItemName(), groceryItem.getShopName());
                 }
                 request.setProductsToAdd(itemsToAdd);
                 request.setProductsToRemove(itemsToRemove);
 
                 SynchronizationResponse response;
                 try {
+                    Log.d(TAG, "Sending request: " + request);
                     response = groceryApi.synchronize(accountId, request, idToken, deviceId);
                     Log.d(TAG, "Got response: " + response);
                     runOnUiThread(new Runnable() {
@@ -325,7 +357,7 @@ public class ListActivity extends AppCompatActivity {
                             continue outer;
                         }
                     }
-                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0);
+                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0, new ShopNameDto());
                     persistGroceryItem(newItem);
                     groceryList.add(newItem);
                 }
@@ -341,8 +373,10 @@ public class ListActivity extends AppCompatActivity {
                 }
                 for (GroceryItemDto groceryItem : groceryList) {
                     Integer totalAmount = response.getTotalAmounts().get(groceryItem.getItemName());
-                    if (totalAmount != null) {
+                    ShopNameDto shopName = response.getShopNames().get(groceryItem.getItemName());
+                    if (totalAmount != null && shopName != null) {
                         groceryItem.setAmount(totalAmount);
+                        groceryItem.setShopName(shopName);
                         persistGroceryItem(groceryItem);
                     }
                 }
@@ -390,6 +424,8 @@ public class ListActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = settings.edit();
         editor.putInt(accountId + TOTAL_PREFIX + groceryItem.getItemName(), groceryItem.getAmount());
         editor.putInt(accountId + LOCAL_PREFIX + groceryItem.getItemName(), groceryItem.getLocalAmount());
+        editor.putString(accountId + SHOP_NAME_PREFIX + groceryItem.getItemName(), groceryItem.getShopName().getName());
+        editor.putLong(accountId + TIMESTAMP_PREFIX + groceryItem.getItemName(), groceryItem.getShopName().getTimestamp());
         editor.commit();
     }
 
@@ -398,6 +434,7 @@ public class ListActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = settings.edit();
         editor.remove(accountId + TOTAL_PREFIX + itemName);
         editor.remove(accountId + LOCAL_PREFIX + itemName);
+        editor.remove(accountId + SHOP_NAME_PREFIX + itemName);
         editor.commit();
     }
 
@@ -414,8 +451,10 @@ public class ListActivity extends AppCompatActivity {
                 Log.d(TAG, "Found: " + itemName);
                 int totalAmount = settings.getInt(accountId + TOTAL_PREFIX + itemName, 0);
                 int localAmount = settings.getInt(accountId + LOCAL_PREFIX + itemName, 0);
+                String shopName = settings.getString(accountId + SHOP_NAME_PREFIX + itemName, "");
+                long timestamp = settings.getLong(accountId + TIMESTAMP_PREFIX + itemName, 0);
 
-                groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount));
+                groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount, new ShopNameDto(shopName, timestamp)));
             }
         }
         Collections.sort(groceryList);

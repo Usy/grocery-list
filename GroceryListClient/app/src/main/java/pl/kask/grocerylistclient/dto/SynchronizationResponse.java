@@ -11,17 +11,20 @@ public class SynchronizationResponse implements Serializable {
     private List<String> productsToAdd;
     private List<String> productsToRemove;
     private Map<String, Integer> totalAmounts;
+    private Map<String, ShopNameDto> shopNames;
 
     public SynchronizationResponse() {
         productsToAdd = new ArrayList<>();
         productsToRemove = new ArrayList<>();
         totalAmounts = new HashMap<>();
+        shopNames = new HashMap<>();
     }
 
-    public SynchronizationResponse(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> totalAmounts) {
+    public SynchronizationResponse(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> totalAmounts, Map<String, ShopNameDto> shopNames) {
         this.productsToAdd = productsToAdd;
         this.productsToRemove = productsToRemove;
         this.totalAmounts = totalAmounts;
+        this.shopNames = shopNames;
     }
 
     public List<String> getProductsToAdd() {
@@ -48,12 +51,21 @@ public class SynchronizationResponse implements Serializable {
         this.totalAmounts = totalAmounts;
     }
 
+    public Map<String, ShopNameDto> getShopNames() {
+        return shopNames;
+    }
+
+    public void setShopNames(Map<String, ShopNameDto> shopNames) {
+        this.shopNames = shopNames;
+    }
+
     @Override
     public String toString() {
         return "SynchronizationResponse{" +
                 "productsToAdd=" + productsToAdd +
                 ", productsToRemove=" + productsToRemove +
                 ", totalAmounts=" + totalAmounts +
+                ", shopNames=" + shopNames +
                 '}';
     }
 }
