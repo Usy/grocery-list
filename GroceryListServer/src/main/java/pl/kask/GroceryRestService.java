@@ -2,6 +2,7 @@ package pl.kask;
 
 import pl.kask.auth.VerificationService;
 import pl.kask.dto.GroceryItemDto;
+import pl.kask.dto.ShareRequest;
 import pl.kask.dto.SynchronizationRequest;
 import pl.kask.dto.SynchronizationResponse;
 import pl.kask.model.AccountDao;
@@ -36,6 +37,28 @@ public class GroceryRestService {
             SynchronizationResponse result = groceryService.synchronize(name, deviceId, request);
             log.info(result.toString());
             return Response.ok(result).build();
+        } else {
+            return Response.status(401).build();
+        }
+    }
+
+    @POST
+    @Path("/share/{name}")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public Response share(@PathParam("name") String name, @HeaderParam("id_token") String idToken, ShareRequest request) {
+
+        if (verificationService.isVerified(idToken, name)) {
+            log.info(request.toString());
+
+            String itemName = request.getItemName();
+            String coOwnerMail = request.getCoOwnerMail();
+            boolean result = groceryService.share(name, itemName, coOwnerMail);
+            if (result) {
+                return Response.ok().build();
+            } else {
+                return Response.status(400).build();
+            }
         } else {
             return Response.status(401).build();
         }

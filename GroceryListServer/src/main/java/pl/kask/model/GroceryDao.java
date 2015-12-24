@@ -95,4 +95,20 @@ public class GroceryDao {
         }
         return null;
     }
+
+    @SuppressWarnings("unchecked")
+    public List<GroceryItem> findByCoOwner(String coOwner) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        try {
+            List<GroceryItem> groceryItems = (List<GroceryItem>) session
+                    .createQuery("from GroceryItem item where item.owner = :o or :o member of item.coOwners")
+                    .setParameter("o", coOwner).list();
+            return groceryItems;
+        } catch (HibernateException e) {
+            e.printStackTrace();
+        } finally {
+            session.close();
+        }
+        return null;
+    }
 }

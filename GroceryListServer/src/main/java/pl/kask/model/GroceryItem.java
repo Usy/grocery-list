@@ -3,7 +3,9 @@ package pl.kask.model;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -22,6 +24,11 @@ public class GroceryItem {
     private String itemName;
     private String shopName;
     private long timestamp;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @JoinTable(name = "grocery_items_coowners", joinColumns = @JoinColumn(name = "id"))
+    @Column(name = "accountId")
+    private List<String> coOwners = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.EAGER)
     @JoinTable(name = "grocery_items_amounts", joinColumns = @JoinColumn(name = "id"))
@@ -90,5 +97,26 @@ public class GroceryItem {
 
     public void setSubSums(Map<String, Integer> subSums) {
         this.subSums = subSums;
+    }
+
+    public List<String> getCoOwners() {
+        return coOwners;
+    }
+
+    public void setCoOwners(List<String> coOwners) {
+        this.coOwners = coOwners;
+    }
+
+    @Override
+    public String toString() {
+        return "GroceryItem{" +
+                "id=" + id +
+                ", owner='" + owner + '\'' +
+                ", itemName='" + itemName + '\'' +
+                ", shopName='" + shopName + '\'' +
+                ", timestamp=" + timestamp +
+                ", coOwners=" + coOwners +
+                ", subSums=" + subSums +
+                '}';
     }
 }

@@ -3,6 +3,7 @@ package pl.kask;
 import pl.kask.dto.ShopNameDto;
 import pl.kask.dto.SynchronizationRequest;
 import pl.kask.dto.SynchronizationResponse;
+import pl.kask.model.Account;
 import pl.kask.model.AccountDao;
 import pl.kask.model.GroceryDao;
 import pl.kask.model.GroceryItem;
@@ -17,7 +18,7 @@ public class GroceryService {
 
     public GroceryService(AccountDao accountDao) {
         groceryDao = new GroceryDao();
-        this.accountDao = accountDao;
+        GroceryService.accountDao = accountDao;
     }
 
     public GroceryDao getGroceryDao() {
@@ -44,13 +45,17 @@ public class GroceryService {
         return groceryDao.findAll();
     }
 
+    public List<GroceryItem> findByCoOwner(String owner) {
+        return groceryDao.findByCoOwner(owner);
+    }
+
     public List<GroceryItem> findByOwner(String owner) {
         return groceryDao.findByOwner(owner);
     }
 
     public SynchronizationResponse synchronize(String userId, String deviceId, SynchronizationRequest request) {
 
-        List<GroceryItem> items = findByOwner(userId);
+        List<GroceryItem> items = findByCoOwner(userId);
 
         List<String> productsToRemove = request.getProductsToRemove();
         List<GroceryItem> itemsToRemove = new ArrayList<>();
@@ -89,6 +94,9 @@ public class GroceryService {
             Integer totalAmount = item.getSubSums().values().stream().reduce(0, Integer::sum);
             result.getTotalAmounts().put(itemName, totalAmount);
             result.getShopNames().put(itemName, new ShopNameDto(item.getShopName(), item.getTimestamp()));
+            if (!item.getOwner().equals(userId)) {
+                result.getSharedProducts().add(itemName);
+            }
         }
 
         for (String productName : request.getSubSums().keySet()) {
@@ -98,5 +106,26 @@ public class GroceryService {
         }
 
         return result;
+    }
+
+    public boolean share(String userId, String itemName, String coOwnerMail) {
+        List<GroceryItem> items = findByOwner(userId);
+
+        Account account = accountDao.findByMail(coOwnerMail);
+        if (account == null) {
+            return false;
+        }
+        System.out.println("Found: " + account);
+        String coOwnerName = account.getGoogleId();
+
+        items.stream()
+                .filter(i -> i.getItemName().equals(itemName))
+                .filter(i -> !i.getCoOwners().contains(coOwnerName))
+                .forEach(i -> {
+                    i.getCoOwners().add(coOwnerName);
+                    System.out.println("Persisting: " + i);
+                    update(i);
+                });
+        return true;
     }
 }
