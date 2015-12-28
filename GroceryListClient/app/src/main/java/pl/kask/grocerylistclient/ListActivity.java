@@ -33,10 +33,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import pl.kask.grocerylistclient.dto.GroceryItemDto;
+import pl.kask.grocerylistclient.dto.ShareRequest;
 import pl.kask.grocerylistclient.dto.ShopNameDto;
 import pl.kask.grocerylistclient.dto.SynchronizationRequest;
 import pl.kask.grocerylistclient.dto.SynchronizationResponse;
+import retrofit.Callback;
 import retrofit.RestAdapter;
+import retrofit.RetrofitError;
+import retrofit.client.Response;
 
 public class ListActivity extends AppCompatActivity {
 
@@ -48,6 +52,7 @@ public class ListActivity extends AppCompatActivity {
     public static final String TIMESTAMP_PREFIX = ".grocery.timestamp.";
     public static final String TO_ADD_PREFIX = ".grocery.itemsToAdd";
     public static final String TO_REMOVE_PREFIX = ".grocery.itemsToRemove";
+    public static final String SHARED_PREFIX = ".grocery.shared";
 
     private List<GroceryItemDto> groceryList;
     private ArrayAdapter<GroceryItemDto> groceryListAdapter;
@@ -58,6 +63,7 @@ public class ListActivity extends AppCompatActivity {
     private String deviceId;
     private List<String> itemsToAdd = new ArrayList<>();
     private List<String> itemsToRemove = new ArrayList<>();
+    private List<String> sharedItems = new ArrayList<>();
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -184,7 +190,7 @@ public class ListActivity extends AppCompatActivity {
                         return true;
                     case R.id.menu_remove:
                         final GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
-                        String itemName = groceryItemDto.getItemName();
+                        final String itemName = groceryItemDto.getItemName();
                         itemsToRemove.add(itemName);
                         if (itemsToAdd.contains(itemName)) {
                             itemsToAdd.remove(itemName);
@@ -219,6 +225,54 @@ public class ListActivity extends AppCompatActivity {
                             }
                         });
                         editBuilder.show();
+                        mode.finish(); // Action picked, so close the CAB
+                        return true;
+                    case R.id.menu_share:
+                        AlertDialog.Builder shareBuilder = new AlertDialog.Builder(ListActivity.this);
+                        final EditText emailInput = new EditText(ListActivity.this);
+                        emailInput.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+                        shareBuilder.setView(emailInput);
+                        shareBuilder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.cancel();
+                            }
+                        });
+                        shareBuilder.setTitle("E-mail to share with:");
+                        shareBuilder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                String coOwnerMail = emailInput.getText().toString();
+                                if (!coOwnerMail.isEmpty()) {
+                                    final GroceryItemDto groceryItemDto = groceryList.get(checkedItemPosition);
+                                    final String itemName = groceryItemDto.getItemName();
+                                    ShareRequest shareRequest = new ShareRequest(itemName, coOwnerMail);
+                                    try {
+                                        groceryApi.share(accountId, idToken, shareRequest, new Callback<Response>() {
+                                            @Override
+                                            public void success(Response response, Response response2) {
+                                                sharedItems.add(itemName);
+                                                persistSharedItems();
+                                                groceryItemDto.setShared(true);
+                                                Collections.sort(groceryList);
+                                                groceryListAdapter.notifyDataSetChanged();
+                                                Toast.makeText(ListActivity.this, "Sharing finished", Toast.LENGTH_LONG).show();
+                                            }
+
+                                            @Override
+                                            public void failure(RetrofitError error) {
+                                                Log.w(TAG, error);
+                                                Toast.makeText(ListActivity.this, "Sharing failed", Toast.LENGTH_LONG).show();
+                                            }
+                                        });
+                                    } catch (Throwable t) {
+                                        Log.w(TAG, t.getMessage());
+                                        Toast.makeText(ListActivity.this, "Sharing failed", Toast.LENGTH_LONG).show();
+                                    }
+                                }
+                            }
+                        });
+                        shareBuilder.show();
                         mode.finish(); // Action picked, so close the CAB
                         return true;
                     default:
@@ -272,7 +326,7 @@ public class ListActivity extends AppCompatActivity {
                             persistItemsToRemove();
                         }
                         persistItemsToAdd();
-                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0, new ShopNameDto());
+                        final GroceryItemDto groceryItemDto = new GroceryItemDto(accountId, name, 0, 0, new ShopNameDto(), false);
                         persistGroceryItem(groceryItemDto);
                         groceryList.add(groceryItemDto);
                         Collections.sort(groceryList);
@@ -304,6 +358,7 @@ public class ListActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "Loading items...");
+        loadSharedItems();
         loadGroceryItems();
         loadItemsToAdd();
         loadItemsToRemove();
@@ -349,6 +404,9 @@ public class ListActivity extends AppCompatActivity {
                 persistItemsToAdd();
                 itemsToRemove.clear();
                 persistItemsToRemove();
+                sharedItems.clear();
+                sharedItems.addAll(response.getSharedProducts());
+                persistSharedItems();
 
                 outer:
                 for (String productName : response.getProductsToAdd()) {
@@ -357,7 +415,8 @@ public class ListActivity extends AppCompatActivity {
                             continue outer;
                         }
                     }
-                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0, new ShopNameDto());
+                    boolean isShared = sharedItems.contains(productName);
+                    GroceryItemDto newItem = new GroceryItemDto(accountId, productName, 0, 0, new ShopNameDto(), isShared);
                     persistGroceryItem(newItem);
                     groceryList.add(newItem);
                 }
@@ -372,9 +431,11 @@ public class ListActivity extends AppCompatActivity {
                     groceryList.removeAll(itemsToRemove);
                 }
                 for (GroceryItemDto groceryItem : groceryList) {
-                    Integer totalAmount = response.getTotalAmounts().get(groceryItem.getItemName());
-                    ShopNameDto shopName = response.getShopNames().get(groceryItem.getItemName());
+                    String itemName = groceryItem.getItemName();
+                    Integer totalAmount = response.getTotalAmounts().get(itemName);
+                    ShopNameDto shopName = response.getShopNames().get(itemName);
                     if (totalAmount != null && shopName != null) {
+                        groceryItem.setShared(sharedItems.contains(itemName));
                         groceryItem.setAmount(totalAmount);
                         groceryItem.setShopName(shopName);
                         persistGroceryItem(groceryItem);
@@ -410,6 +471,16 @@ public class ListActivity extends AppCompatActivity {
         SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
         Set<String> items = settings.getStringSet(accountId + TO_REMOVE_PREFIX, new HashSet<String>());
         itemsToRemove = new ArrayList<>(items);
+    }
+
+    private void persistSharedItems() {
+        persistList(accountId + SHARED_PREFIX, sharedItems);
+    }
+
+    private void loadSharedItems() {
+        SharedPreferences settings = getSharedPreferences("AppSettings", Activity.MODE_PRIVATE);
+        Set<String> items = settings.getStringSet(accountId + SHARED_PREFIX, new HashSet<String>());
+        sharedItems = new ArrayList<>(items);
     }
 
     private void persistList(String key, List<String> values) {
@@ -453,8 +524,9 @@ public class ListActivity extends AppCompatActivity {
                 int localAmount = settings.getInt(accountId + LOCAL_PREFIX + itemName, 0);
                 String shopName = settings.getString(accountId + SHOP_NAME_PREFIX + itemName, "");
                 long timestamp = settings.getLong(accountId + TIMESTAMP_PREFIX + itemName, 0);
-
-                groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount, new ShopNameDto(shopName, timestamp)));
+                boolean isShared = sharedItems.contains(itemName);
+                groceryList.add(new GroceryItemDto(accountId, itemName, totalAmount, localAmount,
+                        new ShopNameDto(shopName, timestamp), isShared));
             }
         }
         Collections.sort(groceryList);

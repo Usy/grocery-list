@@ -12,19 +12,30 @@ public class SynchronizationResponse implements Serializable {
     private List<String> productsToRemove;
     private Map<String, Integer> totalAmounts;
     private Map<String, ShopNameDto> shopNames;
+    private List<String> sharedProducts;
 
     public SynchronizationResponse() {
         productsToAdd = new ArrayList<>();
         productsToRemove = new ArrayList<>();
         totalAmounts = new HashMap<>();
         shopNames = new HashMap<>();
+        sharedProducts = new ArrayList<>();
     }
 
-    public SynchronizationResponse(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> totalAmounts, Map<String, ShopNameDto> shopNames) {
+    public SynchronizationResponse(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> totalAmounts) {
+        this.productsToAdd = productsToAdd;
+        this.productsToRemove = productsToRemove;
+        this.totalAmounts = totalAmounts;
+        shopNames = new HashMap<>();
+        sharedProducts = new ArrayList<>();
+    }
+
+    public SynchronizationResponse(List<String> productsToAdd, List<String> productsToRemove, Map<String, Integer> totalAmounts, Map<String, ShopNameDto> shopNames, List<String> sharedProducts) {
         this.productsToAdd = productsToAdd;
         this.productsToRemove = productsToRemove;
         this.totalAmounts = totalAmounts;
         this.shopNames = shopNames;
+        this.sharedProducts = sharedProducts;
     }
 
     public List<String> getProductsToAdd() {
@@ -59,6 +70,14 @@ public class SynchronizationResponse implements Serializable {
         this.shopNames = shopNames;
     }
 
+    public List<String> getSharedProducts() {
+        return sharedProducts;
+    }
+
+    public void setSharedProducts(List<String> sharedProducts) {
+        this.sharedProducts = sharedProducts;
+    }
+
     @Override
     public String toString() {
         return "SynchronizationResponse{" +
@@ -66,6 +85,7 @@ public class SynchronizationResponse implements Serializable {
                 ", productsToRemove=" + productsToRemove +
                 ", totalAmounts=" + totalAmounts +
                 ", shopNames=" + shopNames +
+                ", sharedProducts=" + sharedProducts +
                 '}';
     }
 }
