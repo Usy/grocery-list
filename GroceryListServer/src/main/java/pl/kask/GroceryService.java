@@ -94,7 +94,7 @@ public class GroceryService {
             Integer totalAmount = item.getSubSums().values().stream().reduce(0, Integer::sum);
             result.getTotalAmounts().put(itemName, totalAmount);
             result.getShopNames().put(itemName, new ShopNameDto(item.getShopName(), item.getTimestamp()));
-            if (!item.getOwner().equals(userId)) {
+            if (!item.getCoOwners().isEmpty()) {
                 result.getSharedProducts().add(itemName);
             }
         }
@@ -117,6 +117,9 @@ public class GroceryService {
         }
         System.out.println("Found: " + account);
         String coOwnerName = account.getGoogleId();
+        if (coOwnerName.equals(userId)) {
+            return false;
+        }
 
         items.stream()
                 .filter(i -> i.getItemName().equals(itemName))
